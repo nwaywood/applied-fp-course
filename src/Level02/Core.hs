@@ -99,8 +99,8 @@ mkListRequest = Right ListRq
 mkErrorResponse
   :: Error
   -> Response
-mkErrorResponse EmptyString = resp404 PlainText "Empty String"
-mkErrorResponse UnknownReq = resp404 PlainText "Unknown Request"
+mkErrorResponse EmptyString = resp400 PlainText "Empty String"
+mkErrorResponse UnknownReq = resp400 PlainText "Unknown Request"
 
 -- | Use our ``RqType`` helpers to write a function that will take the input
 -- ``Request`` from the Wai library and turn it into something our application
