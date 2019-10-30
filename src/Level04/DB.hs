@@ -1,7 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# OPTIONS_GHC -fno-warn-unused-matches #-}
 module Level04.DB
-  ( FirstAppDB (FirstAppDB)
+  ( FirstAppDB (..)
   , initDB
   , closeDB
   , addCommentToTopic
@@ -89,7 +89,8 @@ getComments firstAppDB topic =
     getDBComments :: IO [DBComment]
     getDBComments = Sql.query (dbConn firstAppDB) sql (Sql.Only $ getTopic topic)
     in
-       (traverse fromDBComment =<<) <$> (first DBError <$> Sql.runDBAction getDBComments)
+       -- (traverse fromDBComment =<<) <$> (first DBError <$> Sql.runDBAction getDBComments)
+       (traverse fromDBComment =<<) . first DBError <$> Sql.runDBAction getDBComments
 
 addCommentToTopic
   :: FirstAppDB

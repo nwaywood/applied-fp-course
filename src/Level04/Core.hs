@@ -20,6 +20,7 @@ import           Network.HTTP.Types                 (Status, hContentType,
 
 import qualified Data.ByteString.Lazy.Char8         as LBS
 
+import           Data.Bifunctor                     (first, second)
 import           Data.Either                        (Either (Left, Right),
                                                      either)
 
@@ -28,28 +29,36 @@ import           Data.Text                          (Text)
 import           Data.Text.Encoding                 (decodeUtf8)
 import           Data.Text.Lazy.Encoding            (encodeUtf8)
 
-import           Database.SQLite.SimpleErrors.Types (SQLiteResponse)
+import qualified Database.SQLite.Simple             as Sql
+import qualified Database.SQLite.SimpleErrors       as Sql
+import           Database.SQLite.SimpleErrors.Types (SQLiteResponse(..))
 
 import           Waargonaut.Encode                  (Encoder')
 import qualified Waargonaut.Encode                  as E
 
-import           Level04.Conf                       (Conf, firstAppConfig)
+import           Level04.Conf                       (Conf(..), firstAppConfig)
 import qualified Level04.DB                         as DB
+import Level04.DB (FirstAppDB(..))
+import Level04.Types.Error (Error(..))
+import Level04.Types.Topic (encodeTopic)
+import Level04.Types.CommentText (encodeCommentText)
 import           Level04.Types                      (ContentType (JSON, PlainText),
                                                      Error (EmptyCommentText, EmptyTopic, UnknownRoute),
                                                      RqType (AddRq, ListRq, ViewRq),
                                                      mkCommentText, mkTopic,
-                                                     renderContentType)
+                                                     renderContentType, encodeComment)
 
 -- Our start-up is becoming more complicated and could fail in new and
 -- interesting ways. But we also want to be able to capture these errors in a
 -- single type so that we can deal with the entire start-up process as a whole.
-data StartUpError
+newtype StartUpError
   = DBInitErr SQLiteResponse
   deriving Show
 
 runApp :: IO ()
-runApp = error "runApp needs re-implementing"
+runApp = prepareAppReqs >>= (\e -> case e of
+    Left _ -> error "Start up error occured"
+    Right firstAppDB -> run 8081 (app firstAppDB))
 
 -- We need to complete the following steps to prepare our app requirements:
 --
@@ -61,7 +70,7 @@ runApp = error "runApp needs re-implementing"
 prepareAppReqs
   :: IO ( Either StartUpError DB.FirstAppDB )
 prepareAppReqs =
-  error "prepareAppReqs not implemented"
+  first DBInitErr <$> DB.initDB (dbFilePath firstAppConfig)
 
 -- | Some helper functions to make our lives a little more DRY.
 mkResponse
@@ -138,12 +147,15 @@ handleRequest
   :: DB.FirstAppDB
   -> RqType
   -> IO (Either Error Response)
-handleRequest _db (AddRq _ _) =
-  (resp200 PlainText "Success" <$) <$> error "AddRq handler not implemented"
-handleRequest _db (ViewRq _)  =
-  error "ViewRq handler not implemented"
+-- getTopics
 handleRequest _db ListRq      =
-  error "ListRq handler not implemented"
+    second (resp200Json (E.list encodeTopic)) <$> DB.getTopics _db
+-- getComments
+handleRequest _db (ViewRq t)  =
+  second (resp200Json $ E.list encodeComment) <$> DB.getComments _db t
+-- addCommentToTopic
+handleRequest _db (AddRq t c) =
+  (resp200 PlainText "Success" <$) <$> DB.addCommentToTopic _db t c
 
 mkRequest
   :: Request
@@ -187,3 +199,5 @@ mkErrorResponse EmptyCommentText =
   resp400 PlainText "Empty Comment"
 mkErrorResponse EmptyTopic =
   resp400 PlainText "Empty Topic"
+mkErrorResponse (DBError sqLiteResponse) =
+    resp400 PlainText (LBS.pack $ show sqLiteResponse)

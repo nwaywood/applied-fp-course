@@ -14,4 +14,4 @@ data Conf = Conf
 -- types are so cheap that we can easily prepare ourselves for "doing the right
 -- thing".
 firstAppConfig :: Conf
-firstAppConfig = Conf "app_db.db"
+firstAppConfig = Conf ":memory:"

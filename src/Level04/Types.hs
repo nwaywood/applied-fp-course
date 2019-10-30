@@ -12,6 +12,7 @@ module Level04.Types
   , getTopic
   , mkCommentText
   , getCommentText
+  , encodeComment
   , renderContentType
   , fromDBComment
   ) where
