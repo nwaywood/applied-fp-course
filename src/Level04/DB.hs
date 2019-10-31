@@ -58,7 +58,8 @@ initDB
   -> IO ( Either SQLiteResponse FirstAppDB )
 initDB fp =
   Sql.runDBAction $
-    Sql.open fp >>= (\conn -> const (pure $ FirstAppDB conn) (Sql.execute_ conn createTableQ))
+    -- Sql.open fp >>= (\conn -> const (pure $ FirstAppDB conn) (Sql.execute_ conn createTableQ))
+    Sql.open fp >>= (\conn ->  (Sql.execute_ conn createTableQ) >> (pure $ FirstAppDB conn))
   where
   -- Query has an `IsString` instance so string literals like this can be
   -- converted into a `Query` type when the `OverloadedStrings` language
@@ -97,13 +98,6 @@ addCommentToTopic
   -> Topic
   -> CommentText
   -> IO (Either Error ())
--- addCommentToTopic db topic comment =
---   let
---     sql = "INSERT INTO comments (topic,comment,time) VALUES (?,?,?)"
---     addComment :: IO ()
---     addComment = Sql.execute (dbConn db) sql (getTopic topic, getCommentText comment, 123 :: Int)
---   in
---     first DBError <$> Sql.runDBAction addComment
 addCommentToTopic db topic comment =
   let
     sql = "INSERT INTO comments (topic,comment,time) VALUES (?,?,?)"
@@ -122,7 +116,7 @@ getTopics db =
     getTopics_ :: IO [DBComment]
     getTopics_ = Sql.query_ (dbConn db) sql
   in
-    second (commentTopic <$>) <$> ((traverse fromDBComment =<<) <$> (first DBError <$> Sql.runDBAction getTopics_))
+    second (commentTopic <$>) . (traverse fromDBComment =<<) . first DBError <$> Sql.runDBAction getTopics_
 
 deleteTopic
   :: FirstAppDB
