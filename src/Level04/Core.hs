@@ -5,6 +5,7 @@ module Level04.Core
   , app
   ) where
 
+import System.Exit (exitFailure)
 import           Control.Applicative                (liftA2)
 import           Control.Monad                      (join)
 
@@ -57,7 +58,7 @@ newtype StartUpError
 
 runApp :: IO ()
 runApp = prepareAppReqs >>= (\e -> case e of
-    Left _ -> error "Start up error occured"
+    Left err -> exitFailure
     Right firstAppDB -> run 8081 (app firstAppDB))
 
 -- We need to complete the following steps to prepare our app requirements:

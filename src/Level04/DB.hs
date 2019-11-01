@@ -18,12 +18,14 @@ import           Data.Time                          (UTCTime, getCurrentTime)
 
 import           Database.SQLite.Simple             (Connection, Query (Query))
 import qualified Database.SQLite.Simple             as Sql
+import           Database.SQLite.Simple.FromRow (FromRow (fromRow), field)
 
 import qualified Database.SQLite.SimpleErrors       as Sql
 import           Database.SQLite.SimpleErrors.Types (SQLiteResponse)
 
 import           Level04.Types                      (Comment(..), CommentText,
                                                      Error, Topic, getTopic, getCommentText, fromDBComment)
+import Level04.Types.Topic (mkTopic)
 import Level04.Types.Error (Error (..))
 
 import Level04.DB.Types (DBComment)
@@ -107,16 +109,20 @@ addCommentToTopic db topic comment =
     getCurrentTime >>= (\time ->
         first DBError <$> Sql.runDBAction (addComment time))
 
+instance FromRow Text where
+    fromRow = field
+
 getTopics
   :: FirstAppDB
   -> IO (Either Error [Topic])
 getTopics db =
   let
     sql = "SELECT DISTINCT topic FROM comments"
-    getTopics_ :: IO [DBComment]
+    getTopics_ :: IO [Text]
     getTopics_ = Sql.query_ (dbConn db) sql
   in
-    second (commentTopic <$>) . (traverse fromDBComment =<<) . first DBError <$> Sql.runDBAction getTopics_
+    (traverse mkTopic =<<) . first DBError <$> Sql.runDBAction getTopics_
+    -- second (commentTopic <$>) . (traverse fromDBComment =<<) . first DBError <$> Sql.runDBAction getTopics_
 
 deleteTopic
   :: FirstAppDB
