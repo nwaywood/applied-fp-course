@@ -14,7 +14,7 @@ import           Data.Text              (Text)
 
 import           Level05.Types          (Error)
 
-import           Data.Bifunctor         (first)
+import           Data.Bifunctor         (first, second)
 
 -- We're going to add a very useful abstraction to our application. We'll
 -- automate away the explicit error handling and inspection of our Either values
@@ -48,7 +48,6 @@ import           Data.Bifunctor         (first)
 -- values we expect to appear on the happy path, knowing that if the sad path is
 -- encountered, the structure of our AppM will automatically handle it for us.
 
-newtype AppM a = AppM (IO (Either Error a))
 -- This structure allows us to start writing our functions in terms of
 -- constraints. As an example, if we wanted to abstract over IO and indicate
 -- that instead of the concrete type we wanted a constraint that allows for IO
@@ -63,6 +62,7 @@ newtype AppM a = AppM (IO (Either Error a))
 -- Or we could not use a concrete type for Error
 --
 -- AppM e m a = AppM ( m (Either e a) )
+newtype AppM a = AppM (IO (Either Error a))
 
 runAppM
   :: AppM a
@@ -72,18 +72,22 @@ runAppM (AppM m) =
 
 instance Functor AppM where
   fmap :: (a -> b) -> AppM a -> AppM b
-  fmap = error "fmap for AppM not implemented"
+  fmap f (AppM z) = AppM $ second f <$> z
 
 instance Applicative AppM where
   pure :: a -> AppM a
-  pure  = error "pure for AppM not implemented"
+  pure x = AppM (pure (Right x))
 
   (<*>) :: AppM (a -> b) -> AppM a -> AppM b
-  (<*>) = error "spaceship for AppM not implemented"
+  (<*>) appF appA = AppM $ runAppM appF >>=
+      (\eEF -> runAppM appA >>=
+          (\eEa -> pure $ eEF <*> eEa))
 
 instance Monad AppM where
   (>>=) :: AppM a -> (a -> AppM b) -> AppM b
-  (>>=)  = error "bind for AppM not implemented"
+  (>>=) appA a2AppB = runAppM appA >>=
+      (\eEa -> eEa >>=
+          (\a -> a2AppB a))
 
 instance MonadIO AppM where
   liftIO :: IO a -> AppM a

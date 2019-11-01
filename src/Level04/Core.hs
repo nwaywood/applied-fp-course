@@ -58,7 +58,7 @@ newtype StartUpError
 
 runApp :: IO ()
 runApp = prepareAppReqs >>= (\e -> case e of
-    Left err -> exitFailure
+    Left _ -> exitFailure
     Right firstAppDB -> run 8081 (app firstAppDB))
 
 -- We need to complete the following steps to prepare our app requirements:

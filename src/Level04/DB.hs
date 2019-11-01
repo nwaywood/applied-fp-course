@@ -122,7 +122,6 @@ getTopics db =
     getTopics_ = Sql.query_ (dbConn db) sql
   in
     (traverse mkTopic =<<) . first DBError <$> Sql.runDBAction getTopics_
-    -- second (commentTopic <$>) . (traverse fromDBComment =<<) . first DBError <$> Sql.runDBAction getTopics_
 
 deleteTopic
   :: FirstAppDB
