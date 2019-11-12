@@ -20,6 +20,7 @@ import           Data.Time                          (getCurrentTime)
 import           Database.SQLite.Simple             (Connection,
                                                      Query (fromQuery))
 import qualified Database.SQLite.Simple             as Sql
+import           Database.SQLite.Simple.FromRow (FromRow (fromRow), field)
 
 import qualified Database.SQLite.SimpleErrors       as Sql
 import           Database.SQLite.SimpleErrors.Types (SQLiteResponse)
@@ -30,7 +31,8 @@ import           Level05.Types                      (Comment, CommentText,
                                                      getCommentText, getTopic,
                                                      mkTopic)
 
-import           Level05.AppM                       (AppM)
+import           Level05.DB.Types                   (DBComment)
+import           Level05.AppM                       (AppM(..), runAppM)
 
 -- We have a data type to simplify passing around the information we need to run
 -- our database queries. This also allows things to change over time without
@@ -69,11 +71,13 @@ runDB
   :: (a -> Either Error b)
   -> IO a
   -> AppM b
-runDB =
+runDB aToEErrB ioA =
   -- This function is intended to abstract away the running of DB functions and
   -- the catching of any errors. As well as the process of running some
   -- processing function over those results.
-  error "Write 'runDB' to match the type signature"
+  AppM $ Sql.runDBAction ioA >>= (\eErrA -> case eErrA of
+      Left err -> pure $ Left (DBError err)
+      Right val -> pure $ aToEErrB val)
   -- Move your use of DB.runDBAction to this function to avoid repeating
   -- yourself in the various DB functions.
 
@@ -81,28 +85,51 @@ getComments
   :: FirstAppDB
   -> Topic
   -> AppM [Comment]
-getComments =
-  error "Copy your completed 'getComments' and refactor to match the new type signature"
+getComments firstAppDB topic =
+    let
+      sql = "SELECT id,topic,comment,time FROM comments WHERE topic = ?"
+      getDBComments :: IO [DBComment]
+      getDBComments = Sql.query (dbConn firstAppDB) sql (Sql.Only $ getTopic topic)
+      in
+         runDB (traverse fromDBComment) getDBComments
 
 addCommentToTopic
   :: FirstAppDB
   -> Topic
   -> CommentText
   -> AppM ()
-addCommentToTopic =
-  error "Copy your completed 'appCommentToTopic' and refactor to match the new type signature"
+addCommentToTopic db topic comment =
+    let
+      sql = "INSERT INTO comments (topic,comment,time) VALUES (?,?,?)"
+      addComment t = Sql.execute (dbConn db) sql (getTopic topic, getCommentText comment, t)
+    in
+      AppM $ getCurrentTime >>= (\time ->
+          runAppM $ runDB pure (addComment time))
+
+instance FromRow Text where
+  fromRow = field
 
 getTopics
   :: FirstAppDB
   -> AppM [Topic]
-getTopics =
-  error "Copy your completed 'getTopics' and refactor to match the new type signature"
+getTopics db =
+      let
+        sql = "SELECT DISTINCT topic FROM comments"
+        getTopics_ :: IO [Text]
+        getTopics_ = Sql.query_ (dbConn db) sql
+      in
+        runDB (traverse mkTopic) getTopics_
 
 deleteTopic
   :: FirstAppDB
   -> Topic
   -> AppM ()
-deleteTopic =
-  error "Copy your completed 'deleteTopic' and refactor to match the new type signature"
+deleteTopic db topic =
+      let
+        sql = "DELETE FROM comments WHERE topic = ?"
+        deleteTopic_ :: IO ()
+        deleteTopic_ = Sql.execute (dbConn db) sql (Sql.Only $ getTopic topic)
+      in
+        runDB pure deleteTopic_
 
 -- Go to 'src/Level05/Core.hs' next.
