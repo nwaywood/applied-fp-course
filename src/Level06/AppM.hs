@@ -49,36 +49,41 @@ runApp = runAppM
 
 instance Functor (AppM e) where
   fmap :: (a -> b) -> AppM e a -> AppM e b
-  fmap = error "fmap for (AppM e) not implemented"
+  fmap f (AppM v) = AppM $ second f <$> v
 
 instance Applicative (AppM e) where
   pure :: a -> AppM e a
-  pure  = error "pure for (AppM e) not implemented"
+  pure x = AppM (pure (Right x))
 
   (<*>) :: AppM e (a -> b) -> AppM e a -> AppM e b
-  (<*>) = error "spaceship for (AppM e) not implemented"
+  -- (<*>) appF appA = appF >>= (\eEF -> eEF <$> appA)
+  (<*>) appF appA = appF >>= (<$> appA)
 
 instance Monad (AppM e) where
   (>>=) :: AppM e a -> (a -> AppM e b) -> AppM e b
-  (>>=)  = error "bind for (AppM e) not implemented"
+  (>>=) appMa a2appMb = AppM $ runAppM appMa
+                         >>= either (pure . Left) (runAppM . a2appMb)
+  -- (>>=) appMa a2appMb = appMa >>= (\eEa -> )
 
 instance MonadIO (AppM e) where
   liftIO :: IO a -> AppM e a
-  liftIO = error "liftIO for (AppM e) not implemented"
+  liftIO ioA = AppM $ Right <$> ioA
 
 instance MonadError e (AppM e) where
   throwError :: e -> AppM e a
-  throwError = error "throwError for (AppM e) not implemented"
+  throwError err = AppM $ pure (Left err)
 
   catchError :: AppM e a -> (e -> AppM e a) -> AppM e a
-  catchError = error "catchError for (AppM e) not implemented"
+  catchError appM f = AppM $ runAppM appM >>= (\eErrA -> case eErrA of
+      Left err -> runAppM $ f err
+      Right _ -> runAppM appM)
 
 -- The 'Bifunctor' instance for 'Either' has proved useful several times
 -- already. Now that our 'AppM' exposes both type variables that are used in our
 -- 'Either', we can define a Bifunctor instance and reap similar benefits.
 instance Bifunctor AppM where
   bimap :: (e -> d) -> (a -> b) -> AppM e a -> AppM d b
-  bimap = error "bimap for AppM not implemented"
+  bimap f1 f2 appM = AppM $ bimap f1 f2 <$> runAppM appM
 
 -- This is a helper function that will `lift` an Either value into our new AppM
 -- by applying `throwError` to the Left value, and using `pure` to lift the
@@ -88,4 +93,4 @@ instance Bifunctor AppM where
 -- pure :: Applicative m => a -> m a
 --
 liftEither :: Either e a -> AppM e a
-liftEither = error "liftEither not implemented"
+liftEither e = AppM $ pure e

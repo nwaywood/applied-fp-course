@@ -79,9 +79,10 @@ instance Applicative AppM where
   pure x = AppM (pure (Right x))
 
   (<*>) :: AppM (a -> b) -> AppM a -> AppM b
-  (<*>) appF appA = AppM $ runAppM appF >>=
-      (\eEF -> runAppM appA >>=
-          (\eEa -> pure $ eEF <*> eEa))
+  (<*>) appF appA = appF >>= (<$> appA)
+  -- (<*>) appF appA = AppM $ runAppM appF >>=
+  --     (\eEF -> runAppM appA >>=
+  --         (\eEa -> pure $ eEF <*> eEa))
 
 instance Monad AppM where
     (>>=) :: AppM a -> (a -> AppM b) -> AppM b

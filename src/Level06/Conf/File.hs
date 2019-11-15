@@ -1,15 +1,16 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Level06.Conf.File where
 
-import           Data.ByteString            (ByteString)
+import           Control.Monad.IO.Class     (liftIO)
+import           Data.ByteString            (ByteString, pack)
 
-import           Data.Text                  (Text, pack)
+import           Data.Text                  (Text)
 
-import           Data.Bifunctor             (first)
+import           Data.Bifunctor             (bimap, first)
 import           Data.Monoid                (Last (Last))
 
 import           Control.Exception          (try)
-
+-- import Data.ByteString.Lazy as BLU -- from utf8-string
 import qualified Data.Attoparsec.ByteString as AB
 
 import           Waargonaut                 (Json)
@@ -35,7 +36,7 @@ import           Level06.Types              (ConfigError (BadConfFile),
 readConfFile
   :: FilePath
   -> AppM ConfigError ByteString
-readConfFile =
+readConfFile fp = error "blah"
   -- Reading a file may throw an exception for any number of
   -- reasons. Use the 'try' function from 'Control.Exception' to catch
   -- the exception and turn it into an error value that is thrown as
@@ -43,7 +44,7 @@ readConfFile =
   --
   -- No exceptions from reading the file should escape this function.
   --
-  error "readConfFile not implemented"
+  -- let test = try (readFile fp) in _ <$> test -- liftIO $ bimap BadConfFile pack test
 
 -- | Construct the function that will take a ``FilePath``, read it in, decode it,
 -- and construct our ``PartialConf``.
