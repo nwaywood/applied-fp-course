@@ -26,6 +26,7 @@ module Level06.Types
   , encodeComment
   , renderContentType
   , confPortToWai
+  , partialConfDecoder
   , fromDBComment
   ) where
 
@@ -174,8 +175,9 @@ confPortToWai conf = fromIntegral (getPort $ port conf)
 
 -- Similar to when we were considering our application types. We can add to this sum type
 -- as we build our application and the compiler can help us out.
-newtype ConfigError
+data ConfigError
   = BadConfFile DecodeError
+  | ConfigFileReadError IOError
   deriving Show
 
 -- Our application will be able to load configuration from both a file and

@@ -12,14 +12,16 @@ import           Data.Monoid                (Last (Last))
 import           Control.Exception          (try)
 -- import Data.ByteString.Lazy as BLU -- from utf8-string
 import qualified Data.Attoparsec.ByteString as AB
+import           Data.ByteString.Char8      as BC
 
 import           Waargonaut                 (Json)
+import           Waargonaut.Attoparsec (pureDecodeAttoparsecByteString)
 import qualified Waargonaut.Decode          as D
 import           Waargonaut.Decode.Error    (DecodeError (ParseFailed))
 
-import           Level06.AppM               (AppM (runAppM))
-import           Level06.Types              (ConfigError (BadConfFile),
-                                             PartialConf (PartialConf))
+import           Level06.AppM               (AppM (AppM), liftEither)
+import           Level06.Types              (ConfigError (BadConfFile, ConfigFileReadError),
+                                             PartialConf (PartialConf), partialConfDecoder)
 -- $setup
 -- >>> :set -XOverloadedStrings
 
@@ -36,7 +38,8 @@ import           Level06.Types              (ConfigError (BadConfFile),
 readConfFile
   :: FilePath
   -> AppM ConfigError ByteString
-readConfFile fp = error "blah"
+readConfFile fp = AppM $ bimap ConfigFileReadError BC.pack <$> try (Prelude.readFile fp)
+
   -- Reading a file may throw an exception for any number of
   -- reasons. Use the 'try' function from 'Control.Exception' to catch
   -- the exception and turn it into an error value that is thrown as
@@ -51,7 +54,9 @@ readConfFile fp = error "blah"
 parseJSONConfigFile
   :: FilePath
   -> AppM ConfigError PartialConf
-parseJSONConfigFile =
-  error "parseJSONConfigFile not implemented"
+parseJSONConfigFile fp =
+    readConfFile fp >>= (\bs -> liftEither $ first (BadConfFile . fst) (myDecode bs))
+    where
+        myDecode = pureDecodeAttoparsecByteString partialConfDecoder
 
 -- Go to 'src/Level06/Conf.hs' next.
