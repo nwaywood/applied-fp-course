@@ -5,7 +5,9 @@ module Level06.AppM
   ( AppM(..)
   , App
   , liftEither
+  , liftIO
   , runApp
+  , bimap
   ) where
 
 import           Control.Monad.Except   (MonadError (..))

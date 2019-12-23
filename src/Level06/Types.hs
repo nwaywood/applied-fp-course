@@ -178,6 +178,7 @@ confPortToWai conf = fromIntegral (getPort $ port conf)
 data ConfigError
   = BadConfFile DecodeError
   | ConfigFileReadError IOError
+  | IncompletePartialConf
   deriving Show
 
 -- Our application will be able to load configuration from both a file and
