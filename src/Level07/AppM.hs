@@ -13,6 +13,7 @@ module Level07.AppM
 import           Control.Monad.Except   (MonadError (..))
 import           Control.Monad.IO.Class (MonadIO (..))
 import           Control.Monad.Reader   (MonadReader (..))
+import Control.Applicative (liftA2)
 
 import           Data.Text              (Text)
 
@@ -59,21 +60,57 @@ newtype AppM e a = AppM
 type App = AppM Error
 
 runApp :: App a -> Env -> IO (Either Error a)
-runApp = error "runAppM not implemented"
+runApp = runAppM
 
 instance Applicative (AppM e) where
   pure :: a -> AppM e a
-  pure = error "pure for AppM e not implemented"
+  pure a = AppM (\_ -> pure $ Right a)
 
   (<*>) :: AppM e (a -> b) -> AppM e a -> AppM e b
-  (<*>) = error "spaceship for AppM e not implemented"
+  -- Imp 1 - With AppM e monad implementation
+  -- (<*>) appMAtoB appMA = appMAtoB >>= (<$> appMA)
+  -- Imp 2 - without relying on AppM e monad implementation
+  -- (<*>) appMAtoB appMA = AppM $ \env -> let
+  --   x = runAppM appMAtoB env
+  --   y = runAppM appMA env
+  --   in x >>=
+  --       (\eitherAtoB -> y >>=
+  --           (\eitherA -> pure (eitherAtoB <*> eitherA)))
+  -- Imp 3 - cleaned up version of Imp 2
+  -- (<*>) appMAtoB appMA = AppM $ \env -> let
+  --   x = runAppM appMAtoB env
+  --   y = runAppM appMA env
+  --   in x >>=
+  --       (\eitherAtoB -> (eitherAtoB <*>) <$> y)
+  -- Imp 4 - Using applicative composition law
+  -- (<*>) appMAtoB appMA = AppM $ \env -> let
+  --   x = runAppM appMAtoB env
+  --   y = runAppM appMA env
+  --   in fmap (<*>) x <*> y
+  -- Imp 5 - Using liftA2 instead of `fmap (<*>)` for applicative composition
+  (<*>) appMAtoB appMA = AppM $ \env -> let
+    x = runAppM appMAtoB env
+    y = runAppM appMA env
+    in liftA2 (<*>) x y
+
 
 instance Monad (AppM e) where
   -- | When it comes to running functions in (AppM e) as a Monad, this will take
   -- care of passing the Env from one function to the next whilst preserving the
   -- error handling behaviour.
   (>>=) :: AppM e a -> (a -> AppM e b) -> AppM e b
-  (>>=) = error "bind for AppM e not implemented"
+  -- Imp 1 - Pattern matching
+  -- (>>=) (AppM envToA) f = AppM $ \env ->
+  --   envToA env >>= (\eitherA -> case eitherA of
+  --       Left err -> pure $ Left err
+  --       Right a -> runAppM (f a) env)
+  -- Imp 2 - either function
+  -- (>>=) (AppM envToA) f = AppM $ \env ->
+  --   envToA env >>= either (pure . Left) (\a -> runAppM (f a) env)
+  -- Imp 3 - pointfree that shiz
+  (>>=) (AppM envToA) f = AppM $ \env ->
+    envToA env >>= either (pure . Left) (flip runAppM env . f)
+
 
 instance MonadError e (AppM e) where
   throwError :: e -> AppM e a
@@ -98,7 +135,7 @@ instance MonadReader Env (AppM e) where
 instance MonadIO (AppM e) where
   -- Take a type of 'IO a' and lift it into our (AppM e).
   liftIO :: IO a -> AppM e a
-  liftIO = error "liftIO for AppM not implemented"
+  liftIO ioA = AppM $ \_ -> Right <$> ioA
 
 -- | This is a helper function that will `lift` an Either value into our new AppM
 -- by applying `throwError` to the Left value, and using `pure` to lift the
@@ -108,6 +145,6 @@ instance MonadIO (AppM e) where
 -- pure :: Applicative m => a -> m a
 --
 liftEither :: Either e a -> AppM e a
-liftEither = error "throwLeft not implemented"
+liftEither eA = AppM (\_ -> pure eA)
 
 -- Move on to ``src/Level07/DB.hs`` after this

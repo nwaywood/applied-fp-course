@@ -64,7 +64,6 @@ instance Monad (AppM e) where
   (>>=) :: AppM e a -> (a -> AppM e b) -> AppM e b
   (>>=) appMa a2appMb = AppM $ runAppM appMa
                          >>= either (pure . Left) (runAppM . a2appMb)
-  -- (>>=) appMa a2appMb = appMa >>= (\eEa -> )
 
 instance MonadIO (AppM e) where
   liftIO :: IO a -> AppM e a
