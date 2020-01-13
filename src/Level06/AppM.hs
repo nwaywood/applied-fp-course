@@ -93,4 +93,6 @@ instance Bifunctor AppM where
 -- pure :: Applicative m => a -> m a
 --
 liftEither :: Either e a -> AppM e a
-liftEither e = AppM $ pure e
+liftEither eA = case eA of
+    Left err -> throwError err
+    Right a -> AppM (pure $ Right a)

@@ -114,23 +114,31 @@ instance Monad (AppM e) where
 
 instance MonadError e (AppM e) where
   throwError :: e -> AppM e a
-  throwError = error "throwError for AppM e not implemented"
+  throwError e = AppM $ \_ -> pure $ Left e
 
   catchError :: AppM e a -> (e -> AppM e a) -> AppM e a
-  catchError = error "catchError for AppM e not implemented"
+  -- Imp 1 - pattern matching
+  -- catchError appM f = AppM $ \env -> runAppM appM env >>= (\eErrA -> case eErrA of
+  --     Left err -> runAppM (f err) env
+  --     Right _ -> runAppM appM env)
+  -- Imp 2 - ugly either
+  -- catchError appM f = AppM $ \env -> runAppM appM env >>=
+  --     (\eErrA -> either (\err -> runAppM (f err) env) (\a -> pure $ Right a) eErrA)
+  -- Imp 3 - sexy either
+  catchError appM f = AppM $ \env -> runAppM appM env >>= either (flip runAppM env . f) (pure . Right)
 
 instance MonadReader Env (AppM e) where
   -- Return the current Env from the AppM.
   ask :: AppM e Env
-  ask = error "ask for AppM e not implemented"
+  ask = reader id
 
   -- Run a (AppM e) inside of the current one using a modified Env value.
   local :: (Env -> Env) -> AppM e a -> AppM e a
-  local = error "local for AppM e not implemented"
+  local f appMa = AppM $ \env -> runAppM appMa $ f env
 
   -- This will run a function on the current Env and return the result.
   reader :: (Env -> a) -> AppM e a
-  reader = error "reader for AppM e not implemented"
+  reader f = AppM $ \env -> pure $ Right $ f env
 
 instance MonadIO (AppM e) where
   -- Take a type of 'IO a' and lift it into our (AppM e).
@@ -145,6 +153,8 @@ instance MonadIO (AppM e) where
 -- pure :: Applicative m => a -> m a
 --
 liftEither :: Either e a -> AppM e a
-liftEither eA = AppM (\_ -> pure eA)
+liftEither eA = case eA of
+    Left err -> throwError err
+    Right a -> AppM (\_ -> pure $ Right a)
 
 -- Move on to ``src/Level07/DB.hs`` after this

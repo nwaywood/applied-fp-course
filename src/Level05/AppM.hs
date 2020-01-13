@@ -115,7 +115,9 @@ instance MonadError Error AppM where
 liftEither
   :: Either Error a
   -> AppM a
-liftEither e = AppM $ pure e
+liftEither e = case e of
+    Left err -> throwError err
+    Right a -> AppM $ pure $ Right a
 
 
 -- Go to 'src/Level05/DB.hs' next.

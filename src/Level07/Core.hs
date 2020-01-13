@@ -18,7 +18,7 @@ import           Network.Wai                        (Application, Request,
                                                      strictRequestBody)
 import           Network.Wai.Handler.Warp           (run)
 
-import           Data.Bifunctor                     (first)
+import           Data.Bifunctor                     (first, second, bimap)
 import           Data.Either                        (Either (Left, Right),
                                                      either)
 
@@ -39,10 +39,10 @@ import qualified Level07.Conf                       as Conf
 import qualified Level07.DB                         as DB
 
 import qualified Level07.Responses                  as Res
-import           Level07.Types                      (Conf, ConfigError,
+import           Level07.Types                      (Conf(..), ConfigError,
                                                      ContentType (PlainText),
                                                      Error (..), RqType (..),
-                                                     confPortToWai,
+                                                     DBFilePath(..), confPortToWai,
                                                      encodeComment, encodeTopic,
                                                      mkCommentText, mkTopic)
 
@@ -73,6 +73,7 @@ runApplication = do
       (run ( confPortToWai . envConfig $ env ) (app env))
       $ DB.closeDB (envDB env)
 
+-- TODO: Explain this
 -- | Our AppM is no longer useful for implementing this function. Can you explain why?
 --
 -- We will reimplement this function using `ExceptT`. It is from the 'mtl'
@@ -83,7 +84,11 @@ runApplication = do
 -- 'mtl' on Hackage: https://hackage.haskell.org/package/mtl
 --
 prepareAppReqs :: ExceptT StartUpError IO Env
-prepareAppReqs = error "prepareAppReqs not reimplemented with ExceptT"
+prepareAppReqs = ExceptT $ (first ConfErr <$> Conf.parseOptions "files/appconfig.json") >>=
+    (\eErrConf -> case eErrConf of
+        Left err -> pure $ Left err
+        Right conf -> let x = DB.initDB (dbFilePath conf) in
+            bimap DBInitErr (Env (liftIO . print) conf) <$> x)
   -- You may copy your previous implementation of this function and try refactoring it. On the
   -- condition you have to explain to the person next to you what you've done and why it works.
 
@@ -94,8 +99,12 @@ prepareAppReqs = error "prepareAppReqs not reimplemented with ExceptT"
 app
   :: Env
   -> Application
-app =
-  error "Copy your completed 'app' from the previous level and refactor it here"
+app env rq cb =
+    -- TODO: Understand how to know to use `runApp` and not `>>=` on `App Response`
+    runApp (mkRequest rq >>= handleRequest) env >>= cb . handleRespErr
+        where
+          handleRespErr :: Either Error Response -> Response
+          handleRespErr = either mkErrorResponse id
 
 handleRequest
   :: RqType
