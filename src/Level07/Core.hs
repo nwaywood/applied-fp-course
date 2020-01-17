@@ -83,12 +83,16 @@ runApplication = do
 --
 -- 'mtl' on Hackage: https://hackage.haskell.org/package/mtl
 --
+-- prepareAppReqs :: ExceptT StartUpError IO Env
+-- prepareAppReqs = ExceptT $ (first ConfErr <$> Conf.parseOptions "files/appconfig.json") >>=
+--     (\eErrConf -> case eErrConf of
+--         Left err -> pure $ Left err
+--         Right conf -> let x = DB.initDB (dbFilePath conf) in
+--             bimap DBInitErr (Env (liftIO . print) conf) <$> x)
 prepareAppReqs :: ExceptT StartUpError IO Env
 prepareAppReqs = ExceptT $ (first ConfErr <$> Conf.parseOptions "files/appconfig.json") >>=
-    (\eErrConf -> case eErrConf of
-        Left err -> pure $ Left err
-        Right conf -> let x = DB.initDB (dbFilePath conf) in
-            bimap DBInitErr (Env (liftIO . print) conf) <$> x)
+    either (pure . Left) (\conf -> let x = DB.initDB (dbFilePath conf) in
+        bimap DBInitErr (Env (liftIO . print) conf) <$> x)
   -- You may copy your previous implementation of this function and try refactoring it. On the
   -- condition you have to explain to the person next to you what you've done and why it works.
 
